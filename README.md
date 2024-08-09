@@ -2,6 +2,11 @@
 
 Re:ゼロから始めるOS自作入門
 
+## ビルドの方法
+https://github.com/uchan-nos/mikanos-build?tab=readme-ov-file
+こちらのリポジトリの環境構築を参考にビルド環境を作る
+開発中の環境はubuntu 18.04, wsl
+
 ### カーネルのビルド
 ```bash
 cd kernel
