@@ -45,8 +45,11 @@ KernelMain(const FrameBufferConfig &frame_buffer_config)
         }
     }
 
-    WriteAscii(*pixel_writer, 50, 50, 'A', {0, 0, 0});
-    WriteAscii(*pixel_writer, 58, 50, 'A', {0, 0, 0});
+    WriteAscii(*pixel_writer, 50, 50, 'H', {0, 0, 0});
+    WriteAscii(*pixel_writer, 58, 50, 'E', {0, 0, 0});
+    WriteAscii(*pixel_writer, 66, 50, 'L', {0, 0, 0});
+    WriteAscii(*pixel_writer, 74, 50, 'L', {0, 0, 0});
+    WriteAscii(*pixel_writer, 82, 50, 'O', {0, 0, 0});
 
     while (1)
         __asm__("hlt");

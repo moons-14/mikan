@@ -2,6 +2,10 @@
 
 Re:ゼロから始めるOS自作入門
 
+
+
+参考・引用: [uchan-nos/mikanos](https://github.com/uchan-nos/mikanos)
+
 ## ビルドの方法
 https://github.com/uchan-nos/mikanos-build?tab=readme-ov-file
 こちらのリポジトリの環境構築を参考にビルド環境を作る
@@ -24,6 +28,14 @@ ln -s $HOME/mikan/kernel/elf.hpp $HOME/mikan/MikanLoaderPkg/elf.hpp
 source edksetup.sh
 
 build
+```
+
+### フォントの作成
+```bash
+cd kernel
+chmod +x ../tools/makefont.py
+../tools/makefont.py -o hankaku.bin hankaku.txt
+objcopy -I binary -O elf64-x86-64 -B i386:x86-64 hankaku.bin hankaku.o
 ```
 
 ### シミュレータで起動
