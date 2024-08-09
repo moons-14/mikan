@@ -20,6 +20,7 @@ make
 cd $HOME/edk2
 ln -s $HOME/mikan/MikanLoaderPkg ./
 ln -s $HOME/mikan/kernel/frame_buffer_config.hpp $HOME/mikan/MikanLoaderPkg/frame_buffer_config.hpp
+ln -s $HOME/mikan/kernel/elf.hpp $HOME/mikan/MikanLoaderPkg/elf.hpp
 source edksetup.sh
 
 build

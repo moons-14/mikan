@@ -4,6 +4,10 @@
         "blockio.h": "c",
         "fileinfo.h": "c",
         "simplefilesystem.h": "c",
-        "frame_buffer_config.hpp": "c"
+        "frame_buffer_config.hpp": "c",
+        "random": "c",
+        "printlib.h": "c",
+        "memoryallocationlib.h": "c",
+        "stdalign.h": "c"
     }
 }
