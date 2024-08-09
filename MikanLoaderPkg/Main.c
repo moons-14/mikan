@@ -200,10 +200,10 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
           gop->Mode->FrameBufferBase + gop->Mode->FrameBufferSize,
           gop->Mode->FrameBufferSize);
 
-    UINT8 *flame_buffer = (UINT8 *)gop->Mode->FrameBufferBase;
+    UINT8 *frame_buffer = (UINT8 *)gop->Mode->FrameBufferBase;
     for (UINTN i = 0; i < gop->Mode->FrameBufferSize; ++i)
     {
-        flame_buffer[i] = 255;
+        frame_buffer[i] = 255;
     }
 
     // カーネル読み込みの処理
@@ -246,9 +246,9 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 
     // カーネルを起動
     UINT64 entry_addr = *(UINT64 *)(kernel_base_addr + 24);
-    typedef void EntryPointType(void);
+    typedef void EntryPointType(UINT64, UINT64);
     EntryPointType *entry_point = (EntryPointType *)entry_addr;
-    entry_point();
+    entry_point(gop->Mode->FrameBufferBase, gop->Mode->FrameBufferSize);
 
     Print(L"All done\n");
 
