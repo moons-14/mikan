@@ -4,6 +4,7 @@
 #include "frame_buffer_config.hpp"
 #include "graphics.hpp"
 #include "font.hpp"
+#include "console.hpp"
 
 void *operator new(size_t size, void *buf)
 {
@@ -46,11 +47,19 @@ KernelMain(const FrameBufferConfig &frame_buffer_config)
         }
     }
 
-    WriteString(*pixel_writer, 0, 66, "Hello World!", {0, 0, 255});
+    Console console{*pixel_writer, {0, 0, 0}, {255, 255, 255}};
 
     char buf[128];
-    sprintf(buf, "Horizonal: %d, Vertical: %d", frame_buffer_config.horizonal_resolution, frame_buffer_config.vertical_resolution);
-    WriteString(*pixel_writer, 0, 82, buf, {255, 0, 0});
+    sprintf(buf, "Hello Mikan OS!\n");
+    console.PutString(buf);
+    sprintf(buf, "Horizonal: %d, Vertical: %d\n", frame_buffer_config.horizonal_resolution, frame_buffer_config.vertical_resolution);
+    console.PutString(buf);
+
+    for (int i = 0; i < 30; ++i)
+    {
+        sprintf(buf, "line %d\n", i + 1);
+        console.PutString(buf);
+    }
 
     while (1)
         __asm__("hlt");
