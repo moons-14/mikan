@@ -8,6 +8,22 @@
 #include <Protocol/DiskIo2.h>
 #include <Protocol/BlockIo.h>
 #include <Guid/FileInfo.h>
+#include <stdalign.h>
+
+void Halt(void)
+{
+    while (1)
+        __asm__("hlt");
+}
+
+void CheckError(EFI_STATUS status, CHAR16 *message)
+{
+    if (EFI_ERROR(status))
+    {
+        Print(L"Bootloader Error: %s, %r\n", message, status);
+        Halt();
+    }
+}
 
 struct MemoryMap
 {
@@ -173,23 +189,29 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 {
     Print(L"Hello, Mikan World!\n");
 
+    EFI_STATUS status;
+
     // メモリマップ保存の処理
     CHAR8 memmap_buf[4096 * 4];
     struct MemoryMap memmap = {sizeof(memmap_buf), memmap_buf, 0, 0, 0, 0};
     GetMemoryMap(&memmap);
 
     EFI_FILE_PROTOCOL *root_dir;
-    OpenRootDir(ImageHandle, &root_dir);
+    status = OpenRootDir(ImageHandle, &root_dir);
+    CheckError(status, L"OpenRootDir");
 
     EFI_FILE_PROTOCOL *memmap_file;
-    root_dir->Open(root_dir, &memmap_file, L"\\memmap", EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE, 0);
+    status = root_dir->Open(root_dir, &memmap_file, L"\\memmap", EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE, 0);
+    CheckError(status, L"Open(memmap)");
 
-    SaveMemoryMap(&memmap, memmap_file);
+    status = SaveMemoryMap(&memmap, memmap_file);
+    CheckError(status, L"SaveMemoryMap");
     memmap_file->Close(memmap_file);
 
     // 画面への描画の処理
     EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
-    OpenGOP(ImageHandle, &gop);
+    status = OpenGOP(ImageHandle, &gop);
+    CheckError(status, L"OpenGOP");
     Print(L"Resolution: %ux%u, Pixel Format: %s, %u pixels/line\n",
           gop->Mode->Info->HorizontalResolution,
           gop->Mode->Info->VerticalResolution,
@@ -208,40 +230,33 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 
     // カーネル読み込みの処理
     EFI_FILE_PROTOCOL *kernel_file;
-    root_dir->Open(root_dir, &kernel_file, L"\\kernel.elf", EFI_FILE_MODE_READ, 0);
+    status = root_dir->Open(root_dir, &kernel_file, L"\\kernel.elf", EFI_FILE_MODE_READ, 0);
+    CheckError(status, L"Open(kernel.elf)");
 
     UINTN file_info_size = sizeof(EFI_FILE_INFO) + sizeof(CHAR16) * 12;
-    UINT8 file_info_buffer[file_info_size];
+    alignas(alignof(EFI_FILE_INFO)) UINT8 file_info_buffer[file_info_size];
     kernel_file->GetInfo(kernel_file, &gEfiFileInfoGuid, &file_info_size, file_info_buffer);
 
     EFI_FILE_INFO *file_info = (EFI_FILE_INFO *)file_info_buffer;
     UINTN kernel_file_size = file_info->FileSize;
 
     EFI_PHYSICAL_ADDRESS kernel_base_addr = 0x100000;
-    gBS->AllocatePages(AllocateAddress, EfiLoaderData, (kernel_file_size + 0xfff) / 0x100, &kernel_base_addr);
-    kernel_file->Read(kernel_file, &kernel_file_size, (VOID *)kernel_base_addr);
+    status = gBS->AllocatePages(AllocateAddress, EfiLoaderData, (kernel_file_size + 0xfff) / 0x100, &kernel_base_addr);
+    CheckError(status, L"AllocatePages");
+
+    status = kernel_file->Read(kernel_file, &kernel_file_size, (VOID *)kernel_base_addr);
+    CheckError(status, L"Read(kernel.elf)");
     Print(L"Kernel: 0x%0lx (%lu bytes)\n", kernel_base_addr, kernel_file_size);
 
     // UEFI BIOSを止める処理
-    EFI_STATUS status;
     status = gBS->ExitBootServices(ImageHandle, memmap.map_key);
     if (EFI_ERROR(status))
     {
         status = GetMemoryMap(&memmap);
-        if (EFI_ERROR(status))
-        {
-            Print(L"failed to get memory map: %r\n", status);
-            while (1)
-                ;
-        }
+        CheckError(status, L"GetMemoryMap");
 
         status = gBS->ExitBootServices(ImageHandle, memmap.map_key);
-        if (EFI_ERROR(status))
-        {
-            Print(L"Could not exit boot service: %r\n", status);
-            while (1)
-                ;
-        }
+        CheckError(status, L"ExitBootServices");
     }
 
     // カーネルを起動
@@ -249,8 +264,6 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     typedef void EntryPointType(UINT64, UINT64);
     EntryPointType *entry_point = (EntryPointType *)entry_addr;
     entry_point(gop->Mode->FrameBufferBase, gop->Mode->FrameBufferSize);
-
-    Print(L"All done\n");
 
     while (1)
         ;
