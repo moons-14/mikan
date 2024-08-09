@@ -8,6 +8,7 @@
         "random": "c",
         "printlib.h": "c",
         "memoryallocationlib.h": "c",
-        "stdalign.h": "c"
+        "stdalign.h": "c",
+        "types.h": "c"
     }
 }

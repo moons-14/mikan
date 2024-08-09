@@ -30,14 +30,6 @@ source edksetup.sh
 build
 ```
 
-### フォントの作成
-```bash
-cd kernel
-chmod +x ../tools/makefont.py
-../tools/makefont.py -o hankaku.bin hankaku.txt
-objcopy -I binary -O elf64-x86-64 -B i386:x86-64 hankaku.bin hankaku.o
-```
-
 ### シミュレータで起動
 ```bash
 $HOME/osbook/devenv/run_qemu.sh $HOME/edk2/Build/MikanLoaderX64/DEBUG_CLANG38/X64/Loader.efi $HOME/mikan/kernel/kernel.elf

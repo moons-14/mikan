@@ -8,7 +8,9 @@
                 "~/edk2/MdePkg/Include/X64",
                 "~/edk2/MdePkg/Include/Protocol",
                 "~/edk2/MdePkg/Include/Guid",
-                "~/edk2/MdePkg/Include/Library"
+                "~/edk2/MdePkg/Include/Library",
+                "~/osbook/devenv/x86_64-elf/include",
+                "~/osbook/devenv/x86_64-elf/lib"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",

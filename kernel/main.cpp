@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <cstddef>
+#include <cstdio>
 #include "frame_buffer_config.hpp"
 #include "graphics.hpp"
 #include "font.hpp"
@@ -45,11 +46,11 @@ KernelMain(const FrameBufferConfig &frame_buffer_config)
         }
     }
 
-    WriteAscii(*pixel_writer, 50, 50, 'H', {0, 0, 0});
-    WriteAscii(*pixel_writer, 58, 50, 'E', {0, 0, 0});
-    WriteAscii(*pixel_writer, 66, 50, 'L', {0, 0, 0});
-    WriteAscii(*pixel_writer, 74, 50, 'L', {0, 0, 0});
-    WriteAscii(*pixel_writer, 82, 50, 'O', {0, 0, 0});
+    WriteString(*pixel_writer, 0, 66, "Hello World!", {0, 0, 255});
+
+    char buf[128];
+    sprintf(buf, "Horizonal: %d, Vertical: %d", frame_buffer_config.horizonal_resolution, frame_buffer_config.vertical_resolution);
+    WriteString(*pixel_writer, 0, 82, buf, {255, 0, 0});
 
     while (1)
         __asm__("hlt");
