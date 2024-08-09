@@ -2,6 +2,7 @@
     "files.associations": {
         "map": "c",
         "blockio.h": "c",
-        "fileinfo.h": "c"
+        "fileinfo.h": "c",
+        "simplefilesystem.h": "c"
     }
 }

@@ -2,6 +2,7 @@
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/PrintLib.h>
+#include <Library/MemoryAllocationLib.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/DiskIo2.h>
@@ -131,6 +132,43 @@ EFI_STATUS SaveMemoryMap(struct MemoryMap *map, EFI_FILE_PROTOCOL *file)
     return EFI_SUCCESS;
 }
 
+EFI_STATUS OpenGOP(EFI_HANDLE ImageHandle, EFI_GRAPHICS_OUTPUT_PROTOCOL **gop)
+{
+    UINTN num_gop_handles = 0;
+    EFI_HANDLE *gop_handles = NULL;
+    gBS->LocateHandleBuffer(ByProtocol, &gEfiGraphicsOutputProtocolGuid, NULL, &num_gop_handles, &gop_handles);
+
+    gBS->OpenProtocol(
+        gop_handles[0],
+        &gEfiGraphicsOutputProtocolGuid,
+        (VOID **)gop,
+        ImageHandle,
+        NULL,
+        EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
+
+    FreePool(gop_handles);
+    return EFI_SUCCESS;
+}
+
+const CHAR16 *GetPixelFormatUnicode(EFI_GRAPHICS_PIXEL_FORMAT format)
+{
+    switch (format)
+    {
+    case PixelRedGreenBlueReserved8BitPerColor:
+        return L"PixelRedGreenBlueReserved8BitPerColor";
+    case PixelBlueGreenRedReserved8BitPerColor:
+        return L"PixelBlueGreenRedReserved8BitPerColor";
+    case PixelBitMask:
+        return L"PixelBitMask";
+    case PixelBltOnly:
+        return L"PixelBltOnly";
+    case PixelFormatMax:
+        return L"PixelFormatMax";
+    default:
+        return L"InvalidPixelFormat";
+    }
+}
+
 EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 {
     Print(L"Hello, Mikan World!\n");
@@ -148,6 +186,25 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
 
     SaveMemoryMap(&memmap, memmap_file);
     memmap_file->Close(memmap_file);
+
+    // 画面への描画の処理
+    EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
+    OpenGOP(ImageHandle, &gop);
+    Print(L"Resolution: %ux%u, Pixel Format: %s, %u pixels/line\n",
+          gop->Mode->Info->HorizontalResolution,
+          gop->Mode->Info->VerticalResolution,
+          GetPixelFormatUnicode(gop->Mode->Info->PixelFormat),
+          gop->Mode->Info->PixelsPerScanLine);
+    Print(L"Frame Buffer: 0x%0lx - 0x%0lx, Size: %lu bytes\n",
+          gop->Mode->FrameBufferBase,
+          gop->Mode->FrameBufferBase + gop->Mode->FrameBufferSize,
+          gop->Mode->FrameBufferSize);
+
+    UINT8 *flame_buffer = (UINT8 *)gop->Mode->FrameBufferBase;
+    for (UINTN i = 0; i < gop->Mode->FrameBufferSize; ++i)
+    {
+        flame_buffer[i] = 255;
+    }
 
     // カーネル読み込みの処理
     EFI_FILE_PROTOCOL *kernel_file;
@@ -190,7 +247,7 @@ EFI_STATUS EFIAPI UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
     // カーネルを起動
     UINT64 entry_addr = *(UINT64 *)(kernel_base_addr + 24);
     typedef void EntryPointType(void);
-    EntryPointType *entry_point =(EntryPointType*)entry_addr;
+    EntryPointType *entry_point = (EntryPointType *)entry_addr;
     entry_point();
 
     Print(L"All done\n");
