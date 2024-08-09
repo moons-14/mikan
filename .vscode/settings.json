@@ -3,6 +3,7 @@
         "map": "c",
         "blockio.h": "c",
         "fileinfo.h": "c",
-        "simplefilesystem.h": "c"
+        "simplefilesystem.h": "c",
+        "frame_buffer_config.hpp": "c"
     }
 }

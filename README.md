@@ -14,7 +14,9 @@ make
 ```bash
 cd $HOME/edk2
 ln -s $HOME/mikan/MikanLoaderPkg ./
+ln -s $HOME/mikan/kernel/frame_buffer_config.hpp $HOME/mikan/MikanLoaderPkg/frame_buffer_config.hpp
 source edksetup.sh
+
 build
 ```
 
