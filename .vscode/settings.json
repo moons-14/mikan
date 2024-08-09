@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "map": "c"
+        "map": "c",
+        "blockio.h": "c",
+        "fileinfo.h": "c"
     }
 }

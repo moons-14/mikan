@@ -4,12 +4,16 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "~/edk2/MdePkg/Include/**"
+                "~/edk2/MdePkg/Include/",
+                "~/edk2/MdePkg/Include/X64",
+                "~/edk2/MdePkg/Include/Protocol",
+                "~/edk2/MdePkg/Include/Guid",
+                "~/edk2/MdePkg/Include/Library"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c17",
-            "cppStandard": "c++14",
+            "cppStandard": "c++17",
             "intelliSenseMode": "linux-clang-x64"
         }
     ],
