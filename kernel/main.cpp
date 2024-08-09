@@ -6,6 +6,23 @@
 #include "font.hpp"
 #include "console.hpp"
 
+char console_buf[sizeof(Console)];
+Console *console;
+
+int printk(const char *format, ...)
+{
+    va_list ap;
+    int result;
+    char s[1024];
+
+    va_start(ap, format);
+    result = vsprintf(s, format, ap);
+    va_end(ap);
+
+    console->PutString(s);
+    return result;
+}
+
 void *operator new(size_t size, void *buf)
 {
     return buf;
@@ -21,6 +38,7 @@ PixelWriter *pixel_writer;
 extern "C" void
 KernelMain(const FrameBufferConfig &frame_buffer_config)
 {
+
     switch (frame_buffer_config.pixel_format)
     {
     case kPixelRGBResv8BitPerColor:
@@ -47,19 +65,10 @@ KernelMain(const FrameBufferConfig &frame_buffer_config)
         }
     }
 
-    Console console{*pixel_writer, {0, 0, 0}, {255, 255, 255}};
+    console = new (console_buf) Console{*pixel_writer, {0, 0, 0}, {255, 255, 255}};
 
-    char buf[128];
-    sprintf(buf, "Hello Mikan OS!\n");
-    console.PutString(buf);
-    sprintf(buf, "Horizonal: %d, Vertical: %d\n", frame_buffer_config.horizonal_resolution, frame_buffer_config.vertical_resolution);
-    console.PutString(buf);
-
-    for (int i = 0; i < 30; ++i)
-    {
-        sprintf(buf, "line %d\n", i + 1);
-        console.PutString(buf);
-    }
+    printk("Hello Mikan OS!\n");
+    printk("Horizonal: %d, Vertical: %d\n", frame_buffer_config.horizonal_resolution, frame_buffer_config.vertical_resolution);
 
     while (1)
         __asm__("hlt");
