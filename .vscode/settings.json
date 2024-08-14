@@ -9,6 +9,7 @@
         "printlib.h": "c",
         "memoryallocationlib.h": "c",
         "stdalign.h": "c",
-        "types.h": "c"
+        "types.h": "c",
+        "array": "cpp"
     }
 }

@@ -5,6 +5,8 @@
 #include "graphics.hpp"
 #include "font.hpp"
 #include "console.hpp"
+#include "pci.hpp"
+#include "logger.hpp"
 
 char console_buf[sizeof(Console)];
 Console *console;
@@ -43,25 +45,6 @@ const char mouse_cursor_shape[kMouseCursorHeight][kMouseCursorWidth + 1] = {
 const PixelColor kDesktopBGColor{45, 118, 237};
 const PixelColor kDesktopFGColor{255, 255, 255};
 
-int printk(const char *format, ...)
-{
-    va_list ap;
-    int result;
-    char s[1024];
-
-    va_start(ap, format);
-    result = vsprintf(s, format, ap);
-    va_end(ap);
-
-    console->PutString(s);
-    return result;
-}
-
-void *operator new(size_t size, void *buf)
-{
-    return buf;
-}
-
 void operator delete(void *obj) noexcept
 {
 }
@@ -69,7 +52,7 @@ void operator delete(void *obj) noexcept
 extern "C" void
 KernelMain(const FrameBufferConfig &frame_buffer_config)
 {
-
+    SetLogLevel(kDebug);
     switch (frame_buffer_config.pixel_format)
     {
     case kPixelRGBResv8BitPerColor:
@@ -89,8 +72,8 @@ KernelMain(const FrameBufferConfig &frame_buffer_config)
 
     console = new (console_buf) Console{*pixel_writer, {0, 0, 0}, {255, 255, 255}};
 
-    printk("Hello Mikan OS!\n");
-    printk("Horizonal: %d, Vertical: %d\n", frame_buffer_config.horizonal_resolution, frame_buffer_config.vertical_resolution);
+    Log(kInfo, "Hello Mikan OS!\n");
+    Log(kDebug, "Horizonal: %d, Vertical: %d\n", frame_buffer_config.horizonal_resolution, frame_buffer_config.vertical_resolution);
 
     // カーソル表示
     for (int dy = 0; dy < kMouseCursorHeight; ++dy)
@@ -106,6 +89,37 @@ KernelMain(const FrameBufferConfig &frame_buffer_config)
                 pixel_writer->Write(200 + dx, 100 + dy, {255, 255, 255});
             }
         }
+    }
+
+    auto err = pci::ScanAllBus();
+    Log(kDebug, "ScanAllBus: %s\n", err.Name());
+    for (int i = 0; i < pci::num_device; ++i)
+    {
+        const auto &dev = pci::devices[i];
+        auto vender_id = pci::ReadVendorId(dev.bus, dev.device, dev.function);
+        auto class_code = pci::ReadClassCode(dev.bus, dev.device, dev.function);
+        Log(kDebug, "%d.%d.%d: vend %04x,class %08x (base %02x, sub %02x, interface %02x),head %02x\n", dev.bus, dev.device, dev.function, vender_id, class_code, dev.class_code.base, dev.class_code.sub, dev.class_code.interface, dev.header_type);
+    }
+
+    // xHCを探す intel製を優先
+    pci::Device *xhc_dev = nullptr;
+    for (int i = 0; i < pci::num_device; ++i)
+    {
+        if (pci::devices[i].class_code.Match(0x0cu, 0x03u, 0x30u))
+        {
+            xhc_dev = &pci::devices[i];
+
+            if (0x8086 == pci::ReadVendorId(*xhc_dev))
+            {
+                break;
+            }
+        }
+    }
+
+    if (xhc_dev)
+    {
+        Log(kInfo, "xHC has been found: %d.%d.%d\n",
+            xhc_dev->bus, xhc_dev->device, xhc_dev->function);
     }
 
     while (1)
