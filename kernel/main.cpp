@@ -7,6 +7,16 @@
 #include "console.hpp"
 #include "pci.hpp"
 #include "logger.hpp"
+#include "usb/memory.hpp"
+#include "usb/device.hpp"
+#include "usb/classdriver/mouse.hpp"
+#include "usb/xhci/xhci.hpp"
+#include "usb/xhci/trb.hpp"
+#include "mouse.hpp"
+
+void operator delete(void *obj) noexcept
+{
+}
 
 char console_buf[sizeof(Console)];
 Console *console;
@@ -14,39 +24,40 @@ Console *console;
 char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
 PixelWriter *pixel_writer;
 
-const int kMouseCursorWidth = 15;
-const int kMouseCursorHeight = 24;
-const char mouse_cursor_shape[kMouseCursorHeight][kMouseCursorWidth + 1] = {
-    "@              ",
-    "@@             ",
-    "@.@            ",
-    "@..@           ",
-    "@...@          ",
-    "@....@         ",
-    "@.....@        ",
-    "@......@       ",
-    "@.......@      ",
-    "@........@     ",
-    "@.........@    ",
-    "@..........@   ",
-    "@...........@  ",
-    "@............@ ",
-    "@......@@@@@@@@",
-    "@......@       ",
-    "@....@@.@      ",
-    "@...@ @.@      ",
-    "@..@   @.@     ",
-    "@.@    @.@     ",
-    "@@      @.@    ",
-    "@       @.@    ",
-    "         @.@   ",
-    "         @@@   ",
-};
 const PixelColor kDesktopBGColor{45, 118, 237};
 const PixelColor kDesktopFGColor{255, 255, 255};
 
-void operator delete(void *obj) noexcept
+char mouse_cursor_buf[sizeof(MouseCursor)];
+MouseCursor *mouse_cursor;
+
+void MouseObserver(int8_t displacement_x, int8_t displacement_y)
 {
+    mouse_cursor->MoveRelative({displacement_x, displacement_y});
+}
+
+// intel製のxHCの場合EHCIではなくxHCIで制御するようにする
+void SwitchEhci2Xhci(const pci::Device &xhc_dev)
+{
+    bool intel_ehc_exist = false;
+    for (int i = 0; i < pci::num_device; ++i)
+    {
+        if (pci::devices[i].class_code.Match(0x0cu, 0x03u, 0x20u) // EHCI
+            && 0x8086 == pci::ReadVendorId(pci::devices[i]))
+        {
+            intel_ehc_exist = true;
+            break;
+        }
+    }
+    if (!intel_ehc_exist)
+    {
+        return;
+    }
+
+    uint32_t superspeed_ports = pci::ReadConfReg(xhc_dev, 0xdc); // USB3PRM
+    pci::WriteConfReg(xhc_dev, 0xd8, superspeed_ports);          // USB3_PSSEN
+    uint32_t ehci2xhci_ports = pci::ReadConfReg(xhc_dev, 0xd4);  // XUSB2PRM
+    pci::WriteConfReg(xhc_dev, 0xd0, ehci2xhci_ports);           // XUSB2PR
+    Log(kDebug, "SwitchEhci2Xhci: SS = %02, xHCI = %02x\n", superspeed_ports, ehci2xhci_ports);
 }
 
 extern "C" void
@@ -75,21 +86,7 @@ KernelMain(const FrameBufferConfig &frame_buffer_config)
     Log(kInfo, "Hello Mikan OS!\n");
     Log(kDebug, "Horizonal: %d, Vertical: %d\n", frame_buffer_config.horizonal_resolution, frame_buffer_config.vertical_resolution);
 
-    // カーソル表示
-    for (int dy = 0; dy < kMouseCursorHeight; ++dy)
-    {
-        for (int dx = 0; dx < kMouseCursorWidth; ++dx)
-        {
-            if (mouse_cursor_shape[dy][dx] == '@')
-            {
-                pixel_writer->Write(200 + dx, 100 + dy, {0, 0, 0});
-            }
-            else if (mouse_cursor_shape[dy][dx] == '.')
-            {
-                pixel_writer->Write(200 + dx, 100 + dy, {255, 255, 255});
-            }
-        }
-    }
+    mouse_cursor = new (mouse_cursor_buf) MouseCursor{pixel_writer, kDesktopBGColor, {300, 300}};
 
     auto err = pci::ScanAllBus();
     Log(kDebug, "ScanAllBus: %s\n", err.Name());
@@ -127,6 +124,48 @@ KernelMain(const FrameBufferConfig &frame_buffer_config)
     const uint64_t xhc_mmio_base = xhc_bar.value & ~static_cast<uint64_t>(0xf); // 下位4bitを0にする
     Log(kDebug, "xHC Memory Mapped IO Base Address = %08lx\n", xhc_mmio_base);
 
+    usb::xhci::Controller xhc{xhc_mmio_base};
+    if (0x8086 == pci::ReadVendorId(*xhc_dev))
+    {
+        SwitchEhci2Xhci(*xhc_dev);
+    }
+    {
+        auto error = xhc.Initialize();
+        Log(kDebug, "xhc.Initialize : %s\n", err.Name());
+    }
+    Log(kInfo, "xHC starting\n");
+    xhc.Run();
+
+    usb::HIDMouseDriver::default_observer = MouseObserver;
+
+    for (int i = 1; i <= xhc.MaxPorts(); ++i)
+    {
+        auto port = xhc.PortAt(i);
+        Log(kDebug, "Port %d: IsConnected=%d\n", i, port.IsConnected());
+
+        if (port.IsConnected())
+        {
+            if (auto err = ConfigurePort(xhc, port))
+            {
+                Log(kError, "failed to configre port: %s at %s:%d\n", err.Name(), err.File(), err.Line());
+                continue;
+            }
+        }
+    }
+    while (1)
+    {
+        if (auto err = ProcessEvent(xhc))
+        {
+            Log(kError, "Error while ProcessEvent : %s at %s:%d\n", err.Name(), err.File(), err.Line());
+        }
+    }
+
+    while (1)
+        __asm__("hlt");
+}
+
+extern "C" void __cxa_pure_virtual()
+{
     while (1)
         __asm__("hlt");
 }
