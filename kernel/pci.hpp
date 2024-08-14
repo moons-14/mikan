@@ -57,4 +57,13 @@ namespace pci
     Error ScanFunction(uint8_t bus, uint8_t device, uint8_t function);
 
     Error AddDevice(const Device &dev);
+
+    uint32_t ReadConfReg(const Device &dev, uint8_t reg_addr);
+    void WriteConfReg(const Device &dev, uint8_t reg_addr, uint32_t value);
+
+    constexpr uint8_t CalcBarAddress(unsigned int bar_index)
+    {
+        return 0x10 + 4 * bar_index;
+    }
+    WithError<uint64_t> ReadBar(Device &device, unsigned int bar_index);
 };

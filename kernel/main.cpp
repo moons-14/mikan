@@ -122,6 +122,11 @@ KernelMain(const FrameBufferConfig &frame_buffer_config)
             xhc_dev->bus, xhc_dev->device, xhc_dev->function);
     }
 
+    const WithError<uint64_t> xhc_bar = pci::ReadBar(*xhc_dev, 0);
+    Log(kDebug, "Read Base Address Register: %s\n", xhc_bar.error.Name());
+    const uint64_t xhc_mmio_base = xhc_bar.value & ~static_cast<uint64_t>(0xf); // 下位4bitを0にする
+    Log(kDebug, "xHC Memory Mapped IO Base Address = %08lx\n", xhc_mmio_base);
+
     while (1)
         __asm__("hlt");
 }
