@@ -81,7 +81,7 @@ KernelMain(const FrameBufferConfig &frame_buffer_config)
     FillRectangle(*pixel_writer, {0, kFrameHeight - 50}, {kFrameWidth / 5, 50}, {80, 80, 80});
     DrawRectangle(*pixel_writer, {10, kFrameHeight - 40}, {30, 30}, {160, 160, 160});
 
-    console = new (console_buf) Console{*pixel_writer, {0, 0, 0}, {255, 255, 255}};
+    console = new (console_buf) Console{*pixel_writer, kDesktopFGColor, {255, 255, 255}};
 
     Log(kInfo, "Hello Mikan OS!\n");
     Log(kDebug, "Horizonal: %d, Vertical: %d\n", frame_buffer_config.horizonal_resolution, frame_buffer_config.vertical_resolution);
@@ -130,7 +130,7 @@ KernelMain(const FrameBufferConfig &frame_buffer_config)
         SwitchEhci2Xhci(*xhc_dev);
     }
     {
-        auto error = xhc.Initialize();
+        auto err = xhc.Initialize();
         Log(kDebug, "xhc.Initialize : %s\n", err.Name());
     }
     Log(kInfo, "xHC starting\n");
