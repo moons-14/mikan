@@ -66,4 +66,5 @@ namespace pci
         return 0x10 + 4 * bar_index;
     }
     WithError<uint64_t> ReadBar(Device &device, unsigned int bar_index);
+    
 };

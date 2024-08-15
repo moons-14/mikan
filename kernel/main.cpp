@@ -13,6 +13,8 @@
 #include "usb/xhci/xhci.hpp"
 #include "usb/xhci/trb.hpp"
 #include "mouse.hpp"
+#include "interrupt.hpp"
+#include "asmfunc.h"
 
 void operator delete(void *obj) noexcept
 {
@@ -58,6 +60,21 @@ void SwitchEhci2Xhci(const pci::Device &xhc_dev)
     uint32_t ehci2xhci_ports = pci::ReadConfReg(xhc_dev, 0xd4);  // XUSB2PRM
     pci::WriteConfReg(xhc_dev, 0xd0, ehci2xhci_ports);           // XUSB2PR
     Log(kDebug, "SwitchEhci2Xhci: SS = %02, xHCI = %02x\n", superspeed_ports, ehci2xhci_ports);
+}
+
+// xHCI用割り込みハンドラの定義
+usb::xhci::Controller *xhc;
+
+__attribute__((interrupt)) void IntHandlerXHCI(InterruptFrame *frame)
+{
+    while (xhc->PrimaryEventRing()->HasFront())
+    {
+        if (auto err = ProsessEvent(*xhc))
+        {
+            Log(kError, "Error while ProcessEvent: %s at %s:%d\n", err.Name(), err.File(), err.Line());
+        }
+    }
+    NotifyEndOfInterrupt();
 }
 
 extern "C" void
@@ -119,11 +136,22 @@ KernelMain(const FrameBufferConfig &frame_buffer_config)
             xhc_dev->bus, xhc_dev->device, xhc_dev->function);
     }
 
+    // idtを登録する
+    const uint16_t cs = GetCS();
+    SetIDTEntry(idt[InterruptVector::kXHCI], MakeIDTAttr(DescriptorType::kInterruptGate, 0), reinterpret_cast<uint64_t>(IntHandlerXHCI), cs);
+    LoadIDT(sizeof(idt) - 1, reinterpret_cast<uintptr_t>(&idt[0]));
+
+    // MSI割り込みを有効化
+    const uint8_t bsp_local_apic_id = *reinterpret_cast<const uint32_t *>(0xfee00020) >> 24;
+    
+
+    // Memory Mapped IOのbase addressを取得する
     const WithError<uint64_t> xhc_bar = pci::ReadBar(*xhc_dev, 0);
     Log(kDebug, "Read Base Address Register: %s\n", xhc_bar.error.Name());
     const uint64_t xhc_mmio_base = xhc_bar.value & ~static_cast<uint64_t>(0xf); // 下位4bitを0にする
     Log(kDebug, "xHC Memory Mapped IO Base Address = %08lx\n", xhc_mmio_base);
 
+    // xhcを初期化&起動
     usb::xhci::Controller xhc{xhc_mmio_base};
     if (0x8086 == pci::ReadVendorId(*xhc_dev))
     {
